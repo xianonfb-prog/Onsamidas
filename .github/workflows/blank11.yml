@@ -1,0 +1,36 @@
+name: Auto Pixel Art Generator
+
+on:
+  push:
+    paths:
+      - 'file_000000003ed081fd845b4f94d37e97af.png'
+
+permissions:
+  contents: write
+
+jobs:
+  pixelate-art:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install Libraries
+      run: pip install Pillow scipy numpy
+
+    - name: Run Pixelate Script
+      run: python pixelate.py
+
+    - name: Commit and Push Cleaned Pixel Art
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add cleaned_pixel_art_32x32.png
+        git diff-index --quiet HEAD || git commit -m "Auto-generated authentic 32x32 pixel art"
+        git push
