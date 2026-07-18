@@ -1,0 +1,47 @@
+import os
+from PIL import Image
+
+def process_image():
+    input_file = "sword.png"
+    output_file = "cleaned_pixel_art_32x32.png"
+    
+    # Only run if the image actually exists in the repo
+    if not os.path.exists(input_file):
+        print(f"Error: {input_file} not found in repository root.")
+        return
+
+    img = Image.open(input_file).convert("RGBA")
+
+    # Make background transparent
+    datas = img.getdata()
+    newData = []
+    for item in datas:
+        if item[0] < 15 and item[1] < 15 and item[2] < 15:
+            newData.append((0, 0, 0, 0))
+        else:
+            newData.append(item)
+    img.putdata(newData)
+
+    # Downscale to 32x32
+    resized_img = img.resize((32, 32), Image.Resampling.NEAREST)
+
+    # Restrict to a tight 12-color retro palette
+    rgb_img = resized_img.convert("RGB")
+    quantized = rgb_img.quantize(colors=12, method=Image.Quantize.MAXCOVERAGE)
+
+    # Restore transparency
+    quantized = quantized.convert("RGBA")
+    q_data = quantized.getdata()
+    final_data = []
+    for i, item in enumerate(resized_img.getdata()):
+        if item[3] == 0:
+            final_data.append((0, 0, 0, 0))
+        else:
+            final_data.append(q_data[i])
+    quantized.putdata(final_data)
+
+    quantized.save(output_file)
+    print("Success! Processed 32x32 pixel art created.")
+
+if __name__ == "__main__":
+    process_image()
