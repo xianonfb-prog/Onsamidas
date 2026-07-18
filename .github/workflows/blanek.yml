@@ -1,0 +1,114 @@
+name: Setup Repo & Convert Pixel Art
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - '*.png'
+      - '*.jpg'
+      - '*.jpeg'
+
+permissions:
+  contents: write
+
+jobs:
+  setup-and-convert:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup ImageMagick
+        uses: mfinelli/setup-imagemagick@v8
+
+      - name: Create directory structure
+        run: |
+          # Create directories
+          mkdir -p input
+          mkdir -p output
+          mkdir -p .github/workflows
+          
+          # Create .gitkeep files
+          touch input/.gitkeep
+          touch output/.gitkeep
+          
+          echo "✅ Created directories"
+
+      - name: Move existing images to input folder
+        run: |
+          # Move any PNG/JPG files from root to input folder
+          shopt -s nullglob
+          for img in *.png *.jpg *.jpeg *.gif; do
+            if [ -f "$img" ] && [ "$img" != "README.md" ]; then
+              mv "$img" "input/$img"
+              echo "📁 Moved: $img -> input/$img"
+            fi
+          done
+
+      - name: Convert ALL images to 64x64 pixel art
+        run: |
+          # Process all images in input folder
+          shopt -s nullglob
+          for img in input/*.{png,jpg,jpeg,gif}; do
+            if [ -f "$img" ]; then
+              filename=$(basename "$img")
+              name="${filename%.*}"
+              
+              convert "$img" \
+                -filter point \
+                -resize 64x64! \
+                -colorspace sRGB \
+                -colors 256 \
+                "output/${name}_64x64.png"
+              
+              echo "✅ Converted: $filename -> output/${name}_64x64.png"
+            fi
+          done
+
+      - name: Create README
+        run: |
+          cat > README.md << 'EOF'
+# Pixel Art Converter
+
+Auto-generated repository for 64x64 pixel art conversion.
+
+## Structure
+- `input/` - Original images
+- `output/` - Converted 64x64 pixel art
+
+## Workflows
+- **Setup & Convert** - Sets up structure and converts images automatically
+EOF
+          echo "✅ Created README.md"
+
+      - name: Create converter workflow for future use
+        run: |
+          cat > .github/workflows/convert-only.yml << 'EOF'
+name: Convert New Images
+
+on:
+  push:
+    paths:
+      - 'input/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mfinelli/setup-imagemagick@v8
+      - run: mkdir -p output
+      - run: |
+          for img in input/*.{png,jpg,jpeg,gif}; do
+            if [ -f "$img" ]; then
+              filename=$(basename "$img")
+              name="${filename%.*}"
+              convert "$img" -filter point -resize 64x64! -colorspace sRGB -colors 256 "output/${name}_64x64.png"
+              echo "✅ Converted: $filename
