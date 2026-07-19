@@ -1,0 +1,65 @@
+name: Setup Repo & Convert Existing Images
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.png'
+      - '*.jpg'
+      - '*.jpeg'
+      - '*.gif'
+
+permissions:
+  contents: write
+
+jobs:
+  setup-and-convert:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup ImageMagick
+        uses: mfinelli/setup-imagemagick@v8
+
+      - name: Create directories
+        run: |
+          mkdir -p input
+          mkdir -p output
+
+      - name: Move root images to input folder
+        run: |
+          for img in *.png *.jpg *.jpeg *.gif; do
+            if [ -f "$img" ]; then
+              mv "$img" "input/$img"
+              echo "Moved: $img -> input/$img"
+            fi
+          done
+
+      - name: Convert images to 64x64 pixel art
+        run: |
+          for img in input/*.png input/*.jpg input/*.jpeg input/*.gif; do
+            if [ -f "$img" ]; then
+              filename=$(basename "$img")
+              name="${filename%.*}"
+              convert "$img" -filter point -resize 64x64! -colorspace sRGB -colors 256 "output/${name}_64x64.png"
+              echo "Converted: $filename"
+            fi
+          done
+
+      - name: Commit and push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: setup repo and convert images to 64x64"
+          file_pattern: 'input/* output/*'
+          branch: ${{ github.ref_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-art-64x64
+          path: output/
+          retention-days: 30
